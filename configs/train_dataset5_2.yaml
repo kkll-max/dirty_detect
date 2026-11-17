@@ -1,0 +1,74 @@
+# dataset5_2 六类语义分割训练配置。
+#
+# 数据：configs/data_dataset5_2.yaml
+#   dataset5_1（dataset4_2 + guangban2）真实划分原样保留，
+#   再加 122 张离线合成 glare（clean 帧 + 真实眩光 patch）到 train。
+#   train 1524 / val 350（val 与 dataset5_1 完全相同，指标可直接对比）。
+# 预训练：runs/dataset4_2_6cls/weights/best.pt
+#
+# 注意：
+#   - 合成样本只进了 train，val 全是真实帧；不要拿 dataset5_2 的 val 去调合成参数。
+#   - image-level 划分，同一采集段的相邻帧可能跨 train/val，指标偏乐观。
+#   - 和 dataset4_2 的 val 不同，0.5479 不能直接比；要比就用同一份 data yaml
+#     重跑旧权重留基线。
+
+model: runs/dataset4_2_6cls/weights/best.pt
+data: configs/data_dataset5_2.yaml
+
+epochs: 50
+imgsz: 640            # 必须等于 crop_hw[1]
+rect: true
+batch: 8
+workers: 4
+device: 0
+
+project: runs
+name: dataset5_2_6cls
+seed: 42
+deterministic: false
+patience: 15
+
+# ---- 数据增强 -------------------------------------------------------------
+# 原则：glare 靠"高亮度 + 低饱和 + 无纹理 + 固定形态"识别，增强只能做保标签的
+# 成像链路模拟，不能用会打破这个判据的强颜色扰动。
+#
+# rect: true 时 ultralytics 会把 mosaic / mixup / cutmix 强制置 0
+# （data/dataset.py build_transforms），所以这里写 0 只是显式化。
+# 语义分割也没有接 RandomErasing，erasing 对训练无影响。
+mosaic: 0
+mixup: 0
+close_mosaic: 0
+copy_paste: 0
+erasing: 0
+
+# 几何：只用平移 / 缩放 / 水平翻转。相机水平安装、太阳总在画面上方，
+# 垂直翻转和旋转会造出物理上不存在的分布，教坏位置先验。
+translate: 0.15       # ±15%，太阳在画面里的位置变化大
+scale: 0.3            # 0.7×–1.3×；原 0.5（0.5×–1.5×）会把条纹放大成死白块
+degrees: 0.0
+shear: 0.0
+perspective: 0.0
+fliplr: 0.5
+flipud: 0.0
+
+# 颜色：原默认 hsv_s 0.7 / hsv_v 0.4 会把白色日轮染成彩色、把普通天空提亮成
+# "像 glare"，mask 却不动 → 标签噪声 + 强光假阳。压到只模拟曝光波动。
+hsv_h: 0.0
+hsv_s: 0.2
+hsv_v: 0.2
+# ---------------------------------------------------------------------------
+
+optimizer: AdamW
+lr0: 0.0002
+lrf: 0.01
+cos_lr: true
+weight_decay: 0.0005
+warmup_epochs: 1.0
+
+cls_pw: 0.0
+amp: true
+cache: false
+plots: true
+save: true
+save_period: -1
+val: true

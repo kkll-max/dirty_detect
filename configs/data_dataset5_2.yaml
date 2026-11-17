@@ -1,0 +1,37 @@
+# dataset5_2：dataset5_1 + 离线合成 glare（只进 train）六类分割。
+#
+# 本训练包内数据集直接放在根目录 `dataset5_2/`（不是 `data/dataset5_2`）。
+#
+# 真实部分（dataset4_2 + guangban2）的 train/val 和 dataset5_1 **完全一致**，
+# 合成样本仅追加到 train（receiver/donor 都在 train 的 122 张；180 张里
+# 33 张 receiver 在 val、25 张 donor 在 val，已过滤）。
+#
+#   train 1524 / val 350
+#   train 图片级：dirt_dot 295 / glare 316 / water 319 / grass_residue 285 / mud_film 200
+#                 全 clean 382
+#   val   图片级：dirt_dot  91 / glare  61 / water 118 / grass_residue  95 / mud_film  62
+#                 全 clean 118
+#   train 像素级：dirt_dot 2.84% / glare 1.55% / water 1.64% / grass_residue 8.03% / mud_film 1.17%
+#   val   像素级：dirt_dot 2.62% / glare 2.10% / water 1.97% / grass_residue 8.43% / mud_film 2.13%
+#
+# 合成样本是"clean 帧 + 真实眩光 patch"，单帧眩光面积很小（mask 中位 ~620 px，
+# 全图中位 0.25%），补的是**图片级检出 / 小面积眩光形态**，不是像素占比。
+#
+# guangban2 的 255 张全部纳入：73 张有 shape，182 张空 JSON 按 clean 处理；
+# 空 JSON 未逐张复核，可能存在漏标 glare。
+#
+# val 和 dataset5_1 相同，两者指标可直接对比；和 dataset4_2 的 val 不同，仍不可比。
+
+path: dataset5_2
+train: images/train
+val: images/val
+masks_dir: masks
+crop_hw: [384, 640]
+nc: 6
+names:
+  0: clean
+  1: dirt_dot
+  2: glare
+  3: water
+  4: grass_residue
+  5: mud_film

@@ -1,0 +1,21 @@
+# Python 3.12（本地验证版本）
+#
+# ultralytics 必须锁 8.4.183：语义分割（task=semantic / SemanticDataset /
+# masks_dir）的接口在 8.4.x 才有，换版本可能直接不兼容。
+ultralytics==8.4.183
+
+# 训练框架：按机器的 CUDA 版本装对应的 torch（本地是 2.6.0+cu124）
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+torch>=2.0
+torchvision>=0.15
+
+# 数据处理 / 标注转换
+numpy>=1.26
+opencv-python>=4.8
+pillow>=10.0
+pyyaml>=6.0
+packaging>=23.0
+
+# 可选：tools/export_onnx.py 的校验
+# onnx>=1.17
+# onnxruntime>=1.17
