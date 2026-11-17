@@ -1,35 +1,4 @@
 """把 guangban2 里已标注的 glare patch 合成到 clean 帧上，生成离线增强样本。
-
-思路（为什么用加性/滤色而不是直接贴图）：
-- 真实眩光是镜头上的**光**，叠加到已有画面上；用 ``screen`` 混合
-  ``out = 255 - (255-img)*(255-light)/255`` 更接近"加光"，
-  暗背景几乎不变，高光中心自然过曝，不会像 alpha 覆盖那样留下贴纸感；
-- 贴图边缘用距离变换做羽化，核心区域 alpha=1，外圈渐隐；
-- 贴之前先按接收区域亮度余量挑位置（避免贴到本来就很亮的天空上，
-  screen 混完几乎看不出来），贴完再按"实际变亮 >= --min-delta"更新 mask，
-  保证 **mask 标的位置在画面里真的更亮**，不让标签和外观打架；
-- mask 同步把贴上去的核心像素写成 glare 类，val 不该用合成样本。
-
-默认行为：
-- **donor**：``images/annotations`` 里 JSON 带 glare shape 的帧，按连通域拆成
-  一块块 patch（日轮 / 条纹 / 圆斑各算一块）；
-- **receiver**：JSON 没有 shape 的 clean 帧（``--receivers all`` 可放开）；
-- 每张 clean 帧最多用一次，默认样本数 = clean 帧数；
-- 眩光只贴在画面上半部（太阳不会出现在画面底部），水平位置随机；
-- stem 用 ``syn_0001`` 这类编号，和原图不会撞名；``manifest_synth.json``
-  记录每张合成图的 donor / receiver / 位置 / 增益，方便回查。
-
-输出结构（和 ``guangban2`` 一样的扁平三件套，可直接作为 make_dataset5_1
-的补充源）：
-
-    data/guangban2_syn/
-      images/syn_0001.png
-      masks/syn_0001.png
-      annotations/syn_0001.json
-      manifest_synth.json
-
-用法（在 some_classes/ 下执行）：
-
     python tools/aug_glare_paste.py --dry-run
     python tools/aug_glare_paste.py --preview
     python tools/aug_glare_paste.py --max-samples 100 --force

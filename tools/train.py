@@ -1,45 +1,43 @@
-"""some_classes 训练入口：YOLO26-sem 三类（clean / dirty / glare）。
+"""dataset5_2 六类语义分割训练入口（YOLO26n-sem）。
 
-数据和裁切规则与 clean-opaque 一致：`data/dataset1` 保持原始分辨率，
-`384×640` 的裁切在 Dataset 里做（`tools/crop_dataset.py`），不生成派生目录。
+数据保持原始分辨率，384×640 的居中裁切在 Dataset 内完成
+（`tools/crop_dataset.py`），不生成派生数据目录。
 
-用法（在 `some_classes/` 下执行）：
+用法（在 `code_clean/` 下执行）：
 
-    python tools/train.py --config configs/train_glare.yaml --check
-    python tools/train.py --config configs/train_glare.yaml --check --smoke
-    python tools/train.py --config configs/train_glare.yaml
-    python tools/train.py --config configs/train_glare.yaml --batch 8
-    python tools/train.py --resume runs/glare_3cls/weights/last.pt \
-        --config configs/train_glare.yaml
-
-当前预训练权重 `weights/real2_a.pt` 是 clean / dirty 二分类。加载到三类模型时，
-Ultralytics 会按类别名重映射输出层：clean / dirty 两行保留，只新增 glare 一行；
-主干和分割头其余权重全部迁移。
+    python tools/train.py --config configs/train_dataset5_2.yaml --check
+    python tools/train.py --config configs/train_dataset5_2.yaml --check --smoke
+    python tools/train.py --config configs/train_dataset5_2.yaml
+    python tools/train.py --config configs/train_dataset5_2.yaml --batch 8
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
 import yaml
-from PIL import Image
 from packaging.version import Version
+from PIL import Image
 
 PKG_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_CONFIG = PKG_ROOT / "configs/train_dataset5_2.yaml"
+DEFAULT_DATA = "configs/data_dataset5_2.yaml"
+DEFAULT_NAME = "dataset5_2_6cls"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 MIN_ULTRALYTICS = "8.4.52"
 AUX_MASK_SUFFIX = "_pred"
+CONTROL_KEYS = {"model", "data", "project", "name"}  # 由脚本单独解析
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="some_classes 三类语义分割训练入口",
+        description="dataset5_2 六类语义分割训练入口",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--config", type=Path,
-                        default=PKG_ROOT / "configs/train_glare.yaml")
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--data", type=Path, default=None)
     parser.add_argument("--model", type=str, default=None)
     parser.add_argument("--epochs", type=int, default=None)
@@ -57,7 +55,7 @@ def parse_args() -> argparse.Namespace:
 
 def resolve(path: str | Path) -> Path:
     path = Path(path)
-    return path if path.is_absolute() else (PKG_ROOT / path)
+    return path if path.is_absolute() else PKG_ROOT / path
 
 
 def load_yaml(path: Path) -> dict:
@@ -69,23 +67,22 @@ def load_yaml(path: Path) -> dict:
 
 
 def resolve_model(value: str) -> str:
-    path = Path(value)
-    local = path if path.is_absolute() else PKG_ROOT / path
+    local = resolve(value)
     return str(local) if local.exists() else value
 
 
 def config_name(value: object) -> str:
-    """name 必须是字符串；YAML 里 `4_2` 会被解析成整数 42。"""
+    """name 必须是字符串；YAML 会把 `4_2` 解析成整数 42。"""
     if not isinstance(value, str) or not value.strip():
         raise ValueError(
             f"name 必须是字符串，当前解析成 {value!r}（{type(value).__name__}）。"
             "YAML 会把 4_2 当成数字，请写成 name: \"4_2\"。"
         )
-    return value
+    return value.strip()
 
 
 def mask_dir_for(image_dir: Path, masks_dir: str) -> Path:
-    parts = list(image_dir.parts)
+    parts = image_dir.parts
     if "images" not in parts:
         raise ValueError(f"图片目录必须含 'images' 这一段: {image_dir}")
     index = len(parts) - 1 - parts[::-1].index("images")
@@ -100,8 +97,7 @@ def class_names(data: dict) -> dict[int, str]:
         mapping = {int(key): str(value) for key, value in names.items()}
     except (TypeError, ValueError) as exc:
         raise ValueError(f"names 的键必须是整数类别 ID: {names}") from exc
-    expected = list(range(len(mapping)))
-    if sorted(mapping) != expected:
+    if sorted(mapping) != list(range(len(mapping))):
         raise ValueError(f"names 的类别 ID 必须从 0 连续编号，当前为 {sorted(mapping)}")
     return mapping
 
@@ -116,8 +112,7 @@ def drop_stale_cache(mask_dir: Path, split: str, expected: int) -> None:
         if not candidate.is_file():
             continue
         try:
-            cached = np.load(candidate, allow_pickle=True).item()
-            count = len(cached.get("labels", []))
+            count = len(np.load(candidate, allow_pickle=True).item().get("labels", []))
         except Exception:
             count = -1
         if count != expected:
@@ -130,8 +125,7 @@ def validate_data(data_path: Path) -> tuple[dict, Path]:
 
     data = load_yaml(data_path)
     root = Path(data.get("path", data_path.parent))
-    if not root.is_absolute():
-        root = (PKG_ROOT / root).resolve()
+    root = root if root.is_absolute() else (PKG_ROOT / root).resolve()
     if not root.is_dir():
         raise FileNotFoundError(f"数据集根目录不存在: {root}")
 
@@ -148,6 +142,7 @@ def validate_data(data_path: Path) -> tuple[dict, Path]:
           + "  ".join(f"{cid}={name}" for cid, name in id_to_name.items()))
     print(f"crop    : {crop_hw if crop_hw else '不裁'}")
 
+    allowed = set(range(num_classes)) | {255}
     for split in ("train", "val", "test"):
         value = data.get(split)
         if not value:
@@ -156,8 +151,7 @@ def validate_data(data_path: Path) -> tuple[dict, Path]:
             print(f"{split:5s}: 未配置")
             continue
         image_dir = Path(value if isinstance(value, str) else value[0])
-        if not image_dir.is_absolute():
-            image_dir = root / image_dir
+        image_dir = image_dir if image_dir.is_absolute() else root / image_dir
         if not image_dir.is_dir():
             raise FileNotFoundError(f"{split}: 图片目录不存在: {image_dir}")
         mask_dir = mask_dir_for(image_dir, masks_dir)
@@ -181,10 +175,9 @@ def validate_data(data_path: Path) -> tuple[dict, Path]:
             raise RuntimeError(f"{split}: {len(extra)} 个 mask 没有对应图片，如 {extra[:3]}")
 
         # 图片和 mask 必须同尺寸，否则裁切窗口会错位
-        allowed = set(range(num_classes)) | {255}
-        bad, bad_values, ignored = [], [], 0
-        class_images = {cid: 0 for cid in range(num_classes)}
-        class_pixels = {cid: 0 for cid in range(num_classes)}
+        size_bad, value_bad, ignored = [], [], 0
+        class_images = [0] * num_classes
+        class_pixels = [0] * num_classes
         total_pixels = 0
         shapes = {}
         for stem in sorted(images):
@@ -194,31 +187,31 @@ def validate_data(data_path: Path) -> tuple[dict, Path]:
                 msize = handle.size
                 mask = np.asarray(handle)
             if isize != msize:
-                bad.append(stem)
+                size_bad.append(stem)
                 continue
-            values = {int(v) for v in np.unique(mask)}
-            if not values <= allowed:
-                bad_values.append(f"{stem}:{sorted(values)}")
+            values, counts = np.unique(mask, return_counts=True)
+            values = [int(v) for v in values]
+            if not set(values) <= allowed:
+                value_bad.append(f"{stem}:{values}")
                 continue
             total_pixels += int(mask.size)
-            for cid in range(num_classes):
-                count = int((mask == cid).sum())
-                class_pixels[cid] += count
-                if count:
-                    class_images[cid] += 1
-            if (mask == 255).any():
+            for value, count in zip(values, counts):
+                if value < num_classes:
+                    class_pixels[value] += int(count)
+                    class_images[value] += 1
+            if 255 in values:
                 ignored += 1
             key = (isize[0], isize[1])
             if crop_hw:
                 box = aspect_crop_box(isize[1], isize[0], *crop_hw)
                 key = (box[3], box[2])
             shapes[key] = shapes.get(key, 0) + 1
-        if bad:
-            raise ValueError(f"{split}: {len(bad)} 组图文尺寸不一致，如 {bad[:3]}")
-        if bad_values:
+        if size_bad:
+            raise ValueError(f"{split}: {len(size_bad)} 组图文尺寸不一致，如 {size_bad[:3]}")
+        if value_bad:
             raise ValueError(
-                f"{split}: {len(bad_values)} 张 mask 取值超出 0..{num_classes - 1} 或 255，"
-                f"如 {bad_values[:3]}"
+                f"{split}: {len(value_bad)} 张 mask 取值超出 0..{num_classes - 1} 或 255，"
+                f"如 {value_bad[:3]}"
             )
 
         detail = ", ".join(f"{w}×{h}:{n}"
@@ -226,9 +219,9 @@ def validate_data(data_path: Path) -> tuple[dict, Path]:
         target = f"-> 入网 {crop_hw[0]}×{crop_hw[1]} (H×W)" if crop_hw else ""
         print(f"{split:5s}: {len(images)} 张, 裁切窗口 {detail} (W×H) {target}")
         stats = []
-        for cid in range(num_classes):
+        for cid, name in id_to_name.items():
             share = class_pixels[cid] / total_pixels if total_pixels else 0.0
-            stats.append(f"{id_to_name[cid]}={class_images[cid]}张/{share:.2%}px")
+            stats.append(f"{name}={class_images[cid]}张/{share:.2%}px")
         print("       " + "  ".join(stats))
         if ignored:
             print(f"       ignore: {ignored} 张含 255")
@@ -238,27 +231,30 @@ def validate_data(data_path: Path) -> tuple[dict, Path]:
     return data, root
 
 
-def build_overrides(cfg: dict, args: argparse.Namespace, data_path: Path) -> dict:
-    keys = (
-        "epochs", "imgsz", "batch", "workers", "device", "exist_ok", "seed",
-        "deterministic", "patience", "cls_pw", "amp", "cache", "rect",
-        "mosaic", "mixup", "cutmix", "copy_paste", "close_mosaic", "plots", "save",
-        "save_period", "val", "optimizer", "lr0", "lrf", "cos_lr",
-        "warmup_epochs", "warmup_momentum", "warmup_bias_lr", "weight_decay",
-        "momentum", "freeze", "multi_scale", "translate", "scale", "fliplr",
-        "flipud", "degrees", "shear", "perspective", "hsv_h", "hsv_s", "hsv_v",
-        "erasing",
+def write_resolved_data(data: dict, root: Path) -> Path:
+    """Ultralytics 对相对路径会去 DATASETS_DIR 下找，这里落一份绝对路径快照。"""
+    path = PKG_ROOT / "runs/_data_resolved.yaml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        yaml.safe_dump({**data, "path": str(root)}, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
     )
-    overrides = {key: cfg[key] for key in keys if key in cfg}
+    return path
+
+
+def build_overrides(cfg: dict, args: argparse.Namespace, data_path: Path) -> dict:
+    # 除控制键外，配置里的训练参数原样透传；新增参数不用再改这里。
+    overrides = {key: value for key, value in cfg.items() if key not in CONTROL_KEYS}
     overrides["task"] = "semantic"
     overrides["model"] = resolve_model(args.model or cfg.get("model", "yolo26n-sem.pt"))
     overrides["data"] = str(data_path)
     overrides["project"] = str(resolve(args.project or cfg.get("project", "runs")))
     overrides["name"] = config_name(
-        args.name if args.name is not None else cfg.get("name", "glare_3cls"))
+        args.name if args.name is not None else cfg.get("name", DEFAULT_NAME)
+    )
     if "exist_ok" not in overrides:
         overrides["exist_ok"] = stale_run_dir(Path(overrides["project"]), overrides["name"])
-    for key in ("epochs", "imgsz", "batch", "workers", "device", "name"):
+    for key in ("epochs", "imgsz", "batch", "workers", "device"):
         value = getattr(args, key)
         if value is not None:
             overrides[key] = value
@@ -303,45 +299,20 @@ def check_ultralytics() -> None:
 
 def main() -> None:
     args = parse_args()
-    import sys
-
     sys.path.insert(0, str(PKG_ROOT))
     from tools.crop_dataset import install
 
     config_path = resolve(args.config)
     cfg = load_yaml(config_path)
-    data_path = resolve(args.data or cfg.get("data", "configs/data_dataset1.yaml"))
-
+    data_path = resolve(args.data or cfg.get("data", DEFAULT_DATA))
     data, root = validate_data(data_path)
 
-    # 先装 dataset 替换，再让 Ultralytics 建数据
-    install()
-
-    resolved = dict(data)
-    resolved["path"] = str(root)
-    resolved_data = PKG_ROOT / "runs" / "_data_resolved.yaml"
-    resolved_data.parent.mkdir(parents=True, exist_ok=True)
-    with open(resolved_data, "w", encoding="utf-8") as handle:
-        yaml.safe_dump(resolved, handle, allow_unicode=True, sort_keys=False)
-
+    install()  # 先替换 Dataset，再让 Ultralytics 建数据
+    resolved_data = write_resolved_data(data, root)
     check_ultralytics()
 
     if args.resume is not None:
-        run_name = config_name(
-            args.name if args.name is not None else cfg.get("name", "glare_3cls"))
-        last = resolve(args.resume) if args.resume else \
-            resolve(args.project or cfg.get("project", "runs")) / run_name / "weights/last.pt"
-        if not last.is_file():
-            raise FileNotFoundError(f"续训权重不存在: {last}")
-        print(f"resume : {last}")
-        if args.check:
-            print("校验通过，未开始训练")
-            return
-        from ultralytics import YOLO
-
-        model = YOLO(str(last))
-        print("开始续训 ...")
-        model.train(resume=True, data=str(resolved_data))
+        resume(args, cfg, resolved_data)
         return
 
     overrides = build_overrides(cfg, args, resolved_data)
@@ -361,9 +332,27 @@ def main() -> None:
 
     from ultralytics import YOLO
 
-    model = YOLO(overrides.pop("model"))
     print("开始训练 ...")
-    model.train(**overrides)
+    YOLO(overrides.pop("model")).train(**overrides)
+
+
+def resume(args: argparse.Namespace, cfg: dict, data_path: Path) -> None:
+    project = resolve(args.project or cfg.get("project", "runs"))
+    name = config_name(
+        args.name if args.name is not None else cfg.get("name", DEFAULT_NAME)
+    )
+    last = resolve(args.resume) if args.resume else project / name / "weights/last.pt"
+    if not last.is_file():
+        raise FileNotFoundError(f"续训权重不存在: {last}")
+    print(f"resume : {last}")
+    if args.check:
+        print("校验通过，未开始训练")
+        return
+
+    from ultralytics import YOLO
+
+    print("开始续训 ...")
+    YOLO(str(last)).train(resume=True, data=str(data_path))
 
 
 def smoke(overrides: dict, data_path: Path) -> None:
@@ -387,9 +376,9 @@ def smoke(overrides: dict, data_path: Path) -> None:
     dataset = build("val")
     print(f"dataset class: {type(dataset).__name__}  crop_hw={getattr(dataset, 'crop_hw', None)}")
     sample = dataset[0]
-    image, mask = sample["img"], sample["semantic_mask"]
-    print(f"smoke(val)  : img={tuple(image.shape)}  mask={tuple(mask.shape)}  "
-          f"classes={sorted(int(v) for v in np.unique(mask.numpy()))}")
+    print(f"smoke(val)  : img={tuple(sample['img'].shape)}  "
+          f"mask={tuple(sample['semantic_mask'].shape)}  "
+          f"classes={sorted(int(v) for v in np.unique(sample['semantic_mask'].numpy()))}")
 
     # train 模式下 RandomPerspective 的 translate/scale 会用 255 填掩膜边界，
     # 那是 ignore 索引（loss 会跳过），不是数据脏。这里只看形状。

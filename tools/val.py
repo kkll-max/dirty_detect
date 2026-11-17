@@ -1,16 +1,7 @@
 """在训练好的三类权重上跑 `model.val()`，打印逐类 IoU。
-
-`results.csv` 只记总 mIoU，而 dirty / glare 的像素占比都不高，clean 的 IoU
-容易被平均掉。强光误报和 glare 漏检恰恰要看逐类数字。
-
-用法（在 `some_classes/` 下执行）：
-
     python tools/val.py --config configs/train_glare.yaml
     python tools/val.py --config configs/train_glare.yaml --split test
     python tools/val.py --config configs/train_glare.yaml --weights runs/glare_3cls/weights/last.pt
-
-**不要直接用 `yolo val` 命令行**：它不会走 `install()`，验证集不会被裁到
-384×640，数字和训练时不是一回事。
 """
 
 from __future__ import annotations
