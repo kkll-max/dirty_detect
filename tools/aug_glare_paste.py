@@ -22,7 +22,7 @@ from PIL import Image
 PKG_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PKG_ROOT))
 
-from tools.labelme2mask import (  # noqa: E402
+from tools.annotation_2_mask import (  # noqa: E402
     build_mask,
     load_label_map,
     preview_colors,
@@ -89,7 +89,7 @@ def parse_args() -> argparse.Namespace:
                         help="可见眩光小于该像素数就跳过这张，默认 40")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--preview", action="store_true",
-                        help="额外输出 <out>_preview/，mask 50% 叠在合成图上")
+                        help="额外输出 <out>_preview/，mask 50%% 叠在合成图上")
     parser.add_argument("--force", action="store_true",
                         help="输出目录非空时先清空")
     parser.add_argument("--dry-run", action="store_true",

@@ -34,8 +34,7 @@
 │   ├── train.py                 # 训练入口（--check / --smoke / --resume）
 │   ├── val.py                   # 逐类 IoU 验证
 │   ├── prelabel.py              # 模型生成 labelme JSON / mask / 预览
-│   ├── labelme2mask.py          # labelme JSON → mask
-│   ├── mask2labelme.py          # mask → labelme JSON（预标注）
+│   ├── annotation_2_mask.py     # labelme JSON → 多类别 mask
 │   ├── aug_glare_paste.py       # glare 离线合成（需要 guangban2 源数据）
 │   ├── crop_dataset.py          # 训练时按部署口径裁切（模块，无 CLI）
 │   ├── export_onnx.py           # 导出 ONNX
@@ -99,10 +98,11 @@ grass_residue
 mud_film
 ```
 
-mask 可以由 labelme JSON 现场生成：
+mask 可以由 labelme JSON 现场生成（`-i` / `-m` 省略时按 `annotations` 的同级目录
+推断，`--preview` 输出半透明叠加图）：
 
 ```bat
-python tools\labelme2mask.py -i dataset5_2\images\train ^
+python tools\annotation_2_mask.py -i dataset5_2\images\train ^
   -o dataset5_2\annotations\train -m dataset5_2\masks\train --preview
 ```
 

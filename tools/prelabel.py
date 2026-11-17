@@ -1,31 +1,4 @@
-r"""用预标注模型给一批图片生成 labelme JSON。
-
-预处理和部署口径一致：先按 5:3 居中裁到 384×640，再入网；预测 mask 再放回
-原图坐标。裁切框以外的像素模型没看过，不会生成 shape，需要人工补。
-
-输出是可直接用 labelme 打开修正的 JSON：
-
-    python tools/prelabel.py -i path/images -o path/annotations
-
-    # 只跑前 20 张，CPU
-    python tools/prelabel.py -i data/dataset4/yu_data/images/val ^
-        -o runs/prelabel/val --limit 20 --device cpu
-
-    # 同时保存整帧预测 mask（裁切框外为 255）
-    python tools/prelabel.py -i path/images -o path/annotations --save-mask
-
-    # 一次给出图片、预测 mask、JSON 和预览图四个目录
-    python tools/prelabel.py -i path/images -m path/masks ^
-        -o path/annotations -p path/preview
-
-    # 不写 JSON，只看预览
-    python tools/prelabel.py -i path/images -p path/preview
-
-默认权重 runs/prelabel_mix6/weights/best.pt（yu_data + x5/data_get 混合六类模型）。
-类别名优先取模型 names；如果模型没有 names，用 --labels 指定 labels.txt。
-旧的七类模型会输出 water_film / water_drop，与当前 labels.txt 不一致，
-只能显式用 -w 指定并自行转换。
-"""
+"""可生成 labelme JSON、mask、preview。"""
 
 from __future__ import annotations
 
@@ -47,7 +20,7 @@ LABELME_VERSION = "5.0.1"
 IGNORE = 255
 
 # 6 类调色板，和 stream_server.c / min_dirty_infer 的 SEG_PALETTE_RGB 同色，
-# 检测图按 50% 叠加，网页图例也用这套。prelabel / labelme2mask / predict 三边一致。
+# 检测图按 50% 叠加，网页图例也用这套。prelabel / annotation_2_mask / predict 三边一致。
 PREVIEW_ALPHA = 0.5
 CLASS_RGB = {
     "dirt_dot": (165, 42, 42),       # 红褐 #a52a2a
