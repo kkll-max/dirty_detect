@@ -1,0 +1,44 @@
+# 六类语义分割：dataset（原 dataset5_2）+ AI 生成光斑。
+#
+# 数据集根目录为 `code_clean/dataset/`（不是 `data/dataset5_2`）。
+#
+# 来源与划分（2026-11-18 重新划分后）：
+#   dataset4_2 原划分               train 1198 / val 299
+#   guangban2 实拍光斑（gb2_*）      train   77 / val 178
+#   guangban2_syn 离线合成（gsyn_*） train   37 / val  85
+#   AI 生成光斑（aig2_* / aig3_*）   train  197 / test 30
+#
+#   train 1509 / val 562 / test 30
+#   train 图片级：dirt_dot 295 / glare 392 / water 319 / grass_residue 284 / mud_film 200
+#                 全 clean 292
+#   val   图片级：dirt_dot  91 / glare 182 / water 118 / grass_residue  96 / mud_film  62
+#                 全 clean 208
+#   test  图片级：glare 30（全部为 AI 生成光斑，无其他类别）
+#   train 像素级：dirt_dot 2.86% / glare 1.74% / water 1.66% / grass_residue 8.10% / mud_film 1.18%
+#   val   像素级：dirt_dot 1.69% / glare 1.58% / water 1.27% / grass_residue 5.45% / mud_film 1.38%
+#   test  像素级：glare 3.06%
+#
+# 注意：
+#   - `test` 是 AI 光斑专项诊断集，**不并入主 val**，训练本身不会使用它；
+#     需要时用 `tools/val.py --config configs/train.yaml --split test` 单独评。
+#   - val 的 glare 占比偏高（182/562 = 32%），来自 gb2 / gsyn 的划分调整，
+#     主指标仍以 val 为准，解读时注意类别构成。
+#   - gsyn 合成图进入 val 后，其 receiver（clean 底图）若落在 train，存在场景泄漏，
+#     glare 的 val 指标会偏乐观。
+#   - guangban2 有 182 张空 JSON 按 clean 处理，未逐张复核，可能存在漏标 glare。
+#   - image-level 划分，同一采集段的相邻帧可能跨 train/val，指标整体偏乐观。
+
+path: dataset
+train: images/train
+val: images/val
+test: images/val_ai
+masks_dir: masks
+crop_hw: [384, 640]
+nc: 6
+names:
+  0: clean
+  1: dirt_dot
+  2: glare
+  3: water
+  4: grass_residue
+  5: mud_film

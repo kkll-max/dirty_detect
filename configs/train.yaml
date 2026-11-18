@@ -1,19 +1,18 @@
-# dataset5_2 六类语义分割训练配置。
+# dataset 六类语义分割训练配置。
 #
-# 数据：configs/data_dataset5_2.yaml
-#   dataset5_1（dataset4_2 + guangban2）真实划分原样保留，
-#   再加 122 张离线合成 glare（clean 帧 + 真实眩光 patch）到 train。
-#   train 1524 / val 350（val 与 dataset5_1 完全相同，指标可直接对比）。
-# 预训练：runs/dataset4_2_6cls/weights/best.pt
+# 数据：configs/data.yaml
+#   train 1509 / val 562 / test 30
+#   val 为主评估集；test 是 AI 生成光斑专项诊断集，训练不使用。
+# 预训练：runs/dataset5_2_6cls/weights/best.pt
 #
 # 注意：
-#   - 合成样本只进了 train，val 全是真实帧；不要拿 dataset5_2 的 val 去调合成参数。
+#   - 训练结束仍在 val 上选 best.pt；AI 专项指标要单独跑
+#     `python tools/val.py --config configs/train.yaml --split test`。
+#   - 合成/AI 样本的来源与泄漏风险见 configs/data.yaml 顶部注释。
 #   - image-level 划分，同一采集段的相邻帧可能跨 train/val，指标偏乐观。
-#   - 和 dataset4_2 的 val 不同，0.5479 不能直接比；要比就用同一份 data yaml
-#     重跑旧权重留基线。
 
-model: runs/dataset4_2_6cls/weights/best.pt
-data: configs/data_dataset5_2.yaml
+model: runs/dataset5_2_6cls/weights/best.pt
+data: configs/data.yaml
 
 epochs: 50
 imgsz: 640            # 必须等于 crop_hw[1]
@@ -23,7 +22,7 @@ workers: 4
 device: 0
 
 project: runs
-name: dataset5_2_6cls
+name: dataset_6cls
 seed: 42
 deterministic: false
 patience: 15

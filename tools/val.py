@@ -1,7 +1,7 @@
-"""在训练好的三类权重上跑 `model.val()`，打印逐类 IoU。
-    python tools/val.py --config configs/train_glare.yaml
-    python tools/val.py --config configs/train_glare.yaml --split test
-    python tools/val.py --config configs/train_glare.yaml --weights runs/glare_3cls/weights/last.pt
+"""在训练好的权重上跑 `model.val()`，打印逐类 IoU。
+    python tools/val.py --config configs/train.yaml                 # 主 val
+    python tools/val.py --config configs/train.yaml --split test    # AI 光斑专项集
+    python tools/val.py --config configs/train.yaml --weights runs/dataset_6cls/weights/last.pt
 """
 
 from __future__ import annotations
@@ -16,9 +16,9 @@ PKG_ROOT = Path(__file__).resolve().parents[1]
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="some_classes 逐类 IoU 验证")
+    parser = argparse.ArgumentParser(description="六类分割逐类 IoU 验证")
     parser.add_argument("--config", type=Path,
-                        default=PKG_ROOT / "configs/train_glare.yaml")
+                        default=PKG_ROOT / "configs/train.yaml")
     parser.add_argument("--weights", type=Path, default=None,
                         help="默认取 <project>/<name>/weights/best.pt")
     parser.add_argument("--data", type=Path, default=None)

@@ -1,14 +1,14 @@
-"""dataset5_2 六类语义分割训练入口（YOLO26n-sem）。
+"""dataset 六类语义分割训练入口（YOLO26n-sem）。
 
 数据保持原始分辨率，384×640 的居中裁切在 Dataset 内完成
 （`tools/crop_dataset.py`），不生成派生数据目录。
 
 用法（在 `code_clean/` 下执行）：
 
-    python tools/train.py --config configs/train_dataset5_2.yaml --check
-    python tools/train.py --config configs/train_dataset5_2.yaml --check --smoke
-    python tools/train.py --config configs/train_dataset5_2.yaml
-    python tools/train.py --config configs/train_dataset5_2.yaml --batch 8
+    python tools/train.py --config configs/train.yaml --check
+    python tools/train.py --config configs/train.yaml --check --smoke
+    python tools/train.py --config configs/train.yaml
+    python tools/train.py --config configs/train.yaml --batch 8
 """
 
 from __future__ import annotations
@@ -23,9 +23,9 @@ from packaging.version import Version
 from PIL import Image
 
 PKG_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CONFIG = PKG_ROOT / "configs/train_dataset5_2.yaml"
-DEFAULT_DATA = "configs/data_dataset5_2.yaml"
-DEFAULT_NAME = "dataset5_2_6cls"
+DEFAULT_CONFIG = PKG_ROOT / "configs/train.yaml"
+DEFAULT_DATA = "configs/data.yaml"
+DEFAULT_NAME = "dataset_6cls"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 MIN_ULTRALYTICS = "8.4.52"
 AUX_MASK_SUFFIX = "_pred"

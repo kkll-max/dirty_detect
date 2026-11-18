@@ -74,7 +74,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out", type=Path,
                         default=PKG_ROOT / "data/cal_nchw",
                         help="*.raw 输出目录")
-    parser.add_argument("--ratio", type=float, default=0.20,
+    parser.add_argument("--ratio", type=float, default=0.10,
                         help="抽样比例")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--imgsz", type=int, default=DEFAULT_IMGSZ,

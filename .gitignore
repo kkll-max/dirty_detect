@@ -1,4 +1,7 @@
-dataset5_2
+sam
+data
+temp
+dataset
 __pycache__/
 *.py[cod]
 runs/_data_*.yaml
